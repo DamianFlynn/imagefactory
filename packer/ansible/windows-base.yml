@@ -1,0 +1,28 @@
+- hosts: all
+  gather_facts: false
+  tasks:
+  - name: Install Windows Features
+    win_feature:
+      name:
+        - RDS-RD-Server
+        - Remote-Assistance
+        - RSAT-AD-Tools
+        - Server-Media-Foundation
+      state: present
+    register: win_feature
+
+  - name: Reboot if features require
+    win_reboot:
+    when: win_feature.reboot_required
+  
+  - name: Add Azure PowerShell Module
+    win_psmodule:
+      name: AZ
+      state: present
+    
+  - name: Install packages
+    win_chocolatey:
+      name:
+        - 7zip
+        - jre8
+      state: present

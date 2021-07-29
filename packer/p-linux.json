@@ -1,0 +1,73 @@
+{
+  "variables": {
+    "client_id": "{{env `client_id`}}",
+    "client_secret": "{{env `client_secret`}}",
+    "subid": "{{env `subid`}}",
+    "tenantid": "{{env `tenantid`}}",
+    "storage_account": "{{env `storage_account`}}",
+    
+    
+    
+
+    "rg_name": "{{env `rg_name`}}",
+    "location": "{{env `location`}}",
+    
+    
+    "pool_name": "{{env `pool`}}"
+  },
+  "builders": [
+    {
+      "type": "azure-arm",
+
+      "client_id": "{{user `client_id`}}",
+      "client_secret": "{{user `client_secret`}}",
+      "subscription_id": "{{user `subid`}}",
+      "tenant_id": "{{user `tenantid`}}",
+
+      "os_type": "Linux",
+      
+      "capture_name_prefix": "{{user `pool_name`}}-{{isotime \"200601020304\"}}",
+      "capture_container_name": "goldimages",
+      "storage_account": "{{user `storage_account`}}",
+      "resource_group_name": "{{user `rg_name`}}",
+
+      "image_publisher": "Canonical",
+      "image_offer": "UbuntuServer",
+      "image_sku": "18.04-LTS",
+
+      "ssh_username": "packer",
+      "ssh_password": "{{user `client_secret`}}",
+      "ssh_pty": "true",
+
+      "azure_tags": {
+        "dept": "Linux",
+        "task": "{{user `pool_name`}} Image",
+        "OS": "Linux",
+        "CreatedOn": "{{isotime \"2006-01-02-1504\"}}",
+        "CreatedBy": "DevOps"
+      },
+
+      "location": "{{user `location`}}",
+      "vm_size": "Standard_D4s_v3",
+
+      "async_resourcegroup_delete":true
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "ansible",
+      "playbook_file": "{{template_dir}}/ansible/linux-sftp.yml",
+      "extra_arguments": [ 
+        "-vvv"
+      ],
+      "user": "packer",
+      "use_proxy": false
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "manifest",
+      "output": "manifest.json"
+    }
+  ]
+}

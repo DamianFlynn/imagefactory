@@ -1,0 +1,117 @@
+{
+  "variables": {
+    "client_id": "{{env `client_id`}}",
+    "client_secret": "{{env `client_secret`}}",
+    "subid": "{{env `subid`}}",
+    "tenantid": "{{env `tenantid`}}",
+    "storage_account": "{{env `storage_account`}}",
+    "vdacontrollers": "{{env `vdacontrollers`}}",
+    "vda": "{{env `vda`}}",
+    "sakey": "{{env `sa_key`}}",
+    "media_container": "{{env `media_container`}}",
+    "rg_name": "{{env `rg_name`}}",
+    "location": "{{env `location`}}",
+    "azfilesdomain": "pwe1fsstordatayfnqv47gv.file.core",
+    "winver": "{{env `winver`}}",
+    "pool_name": "{{env `pool`}}"
+  },
+  "builders": [
+    {
+      "type": "azure-arm",
+
+      "client_id": "{{user `client_id`}}",
+      "client_secret": "{{user `client_secret`}}",
+      "subscription_id": "{{user `subid`}}",
+      "tenant_id": "{{user `tenantid`}}",
+
+      "os_type": "Windows",
+
+      "capture_name_prefix": "{{user `pool_name`}}-{{isotime \"200601020304\"}}",
+      "capture_container_name": "goldimages",
+      "storage_account": "{{user `storage_account`}}",
+      "resource_group_name": "{{user `rg_name`}}",
+
+      "image_publisher": "MicrosoftWindowsServer",
+      "image_offer": "WindowsServer",
+      "image_sku": "{{user `winver`}}",
+      "communicator": "winrm",
+      "winrm_use_ssl": true,
+      "winrm_insecure": true,
+      "winrm_timeout": "5m",
+      "winrm_username": "packer",
+
+      "azure_tags": {
+        "dept": "Windows",
+        "task": "{{user `pool_name`}} Image",
+        "OS": "{{user `winver`}}",
+        "CreatedOn": "{{isotime \"2006-01-02-1504\"}}",
+        "CreatedBy": "DevOps"
+      },
+
+      "location": "{{user `location`}}",
+      "vm_size": "Standard_D4s_v3",
+
+      "async_resourcegroup_delete":true
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "powershell",
+      "inline": ["[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12;  iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"]
+    },
+    {
+      "type": "ansible",
+      "extra_arguments": [
+        "--extra-vars",
+        "ansible_winrm_server_cert_validation=ignore",
+        "--extra-vars",
+        "ansible_shell_type=powershell",
+        "--extra-vars",
+        "ansible_shell_executable=None",
+        "-vvv",
+        "--extra-vars", 
+        "winrm_password={{ .WinRMPassword }}"
+      ],
+      "playbook_file": "{{template_dir}}/ansible/windows-base.yml",
+      "user": "packer",
+      "use_proxy": false
+    },
+    {
+      "type": "windows-update",
+      "search_criteria": "IsInstaller=0",
+      "filters": [
+        "exclude":"",
+        "include":""
+      ]
+    },
+    {
+      "type": "windows-restart"
+    },
+    {
+      "type": "powershell",
+      "inline": ["get-hotfix|Select-Object description,hotfixid,caption|sort-object HotFixID|ConvertTo-Json|Out-File 'c:\\windows\\temp\\hotfix.json' -force"]
+    },
+    {
+      "type": "file",
+      "source": "c:\\windows\\temp\\hotfix.json",
+      "destination": "./hotfix.json",
+      "direction": "download"
+    },
+    {
+      "type": "powershell",
+      "inline": ["get-package|Select-Object Name,Version,Source,ProviderName|sort-object Name|ConvertTo-Json|Out-File 'c:\\windows\\temp\\package.json' -force"]
+    },
+    {
+      "type": "file",
+      "source": "c:\\windows\\temp\\package.json",
+      "destination": "./package.json",
+      "direction": "download"
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "manifest",
+      "output": "manifest.json"
+    }
+  ]
+}
